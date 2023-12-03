@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+  # Go application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: go_user
+      POSTGRES_PASSWORD: go_password
+      POSTGRES_DB: go_db
+
+  # PostgreSQL service
+  db:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: go_user
+      POSTGRES_PASSWORD: go_password
+      POSTGRES_DB: go_db
