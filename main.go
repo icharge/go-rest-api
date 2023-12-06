@@ -1,12 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ilyakaznacheev/cleanenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+type Config struct {
+	Database struct {
+		Username string `env:"DB_USERNAME" env-default:"go_user"`
+		Password string `env:"DB_PASSWORD" env-default:"go_password"`
+		DBName   string `env:"DB_NAME" env-default:"go_db"`
+	}
+}
+
+var config Config
+
+func (c *Config) loadEnv() {
+	cleanenv.ReadConfig("config.yml", &c)
+}
 
 var db = make(map[string]string)
 
@@ -23,8 +39,14 @@ type Customer struct {
 	Email     string `json:"email"`
 }
 
+func buildDSN(config Config) string {
+	return fmt.Sprintf("host=localhost user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Bangkok",
+		config.Database.Username, config.Database.Password, config.Database.DBName)
+}
+
 func (h *CustomerHandler) Initialize() {
-	dsn := "host=localhost user=go_user password=go_password dbname=go_db sslmode=disable TimeZone=Asia/Bangkok"
+
+	dsn := buildDSN(config)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
 	if err != nil {
@@ -140,6 +162,8 @@ func setupRouter() *gin.Engine {
 }
 
 func main() {
+	config.loadEnv()
+
 	r := setupRouter()
 	// Listen and Server in 0.0.0.0:8080
 	r.Run(":8080")
