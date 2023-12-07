@@ -1,107 +1,27 @@
 package main
 
 import (
+	"chillio/api-gin/config"
+	"chillio/api-gin/repo"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ilyakaznacheev/cleanenv"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
-type Config struct {
-	Database struct {
-		Username string `env:"DB_USERNAME" env-default:"go_user"`
-		Password string `env:"DB_PASSWORD" env-default:"go_password"`
-		DBName   string `env:"DB_NAME" env-default:"go_db"`
-	}
-}
-
-var config Config
-
-func (c *Config) loadEnv() {
-	cleanenv.ReadConfig("config.yml", &c)
-}
+var cfg config.Config
 
 var db = make(map[string]string)
 
-type CustomerHandler struct {
-	DB *gorm.DB
-}
-
-type Customer struct {
-	Id        uint   `gorm:"primary_key" json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Nick      string `json:"nick"`
-	Age       int    `json:"age"`
-	Email     string `json:"email"`
-}
-
-func buildDSN(config Config) string {
-	return fmt.Sprintf("host=localhost user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Bangkok",
-		config.Database.Username, config.Database.Password, config.Database.DBName)
-}
-
-func (h *CustomerHandler) Initialize() {
-
-	dsn := buildDSN(config)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-
-	if err != nil {
-		panic("failed to connect db...")
-	}
-
-	db.AutoMigrate(&Customer{})
-
-	h.DB = db
-}
-
-func (h *CustomerHandler) GetAllCustomer(c *gin.Context) {
-	customers := []Customer{}
-
-	h.DB.Find(&customers)
-
-	c.JSON(http.StatusOK, customers)
-}
-
-func (h *CustomerHandler) GetCustomer(c *gin.Context) {
-	id := c.Param("id")
-	customer := Customer{}
-
-	if err := h.DB.Find(&customer, id).Error; err != nil {
-		c.Status(http.StatusNotFound)
-		return
-	}
-
-	c.JSON(http.StatusOK, customer)
-}
-
-func (h *CustomerHandler) SaveCustomer(c *gin.Context) {
-	customer := Customer{}
-
-	if err := c.ShouldBindJSON(&customer); err != nil {
-		c.Status(http.StatusBadRequest)
-		return
-	}
-
-	if err := h.DB.Save(&customer).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	c.JSON(http.StatusOK, customer)
-}
 
 func setupRouter() *gin.Engine {
 	// Disable Console Color
 	// gin.DisableConsoleColor()
 	r := gin.Default()
 
-	h := CustomerHandler{}
+	h := repo.CustomerHandler{}
 
-	h.Initialize()
+	h.Initialize(&cfg)
 
 	r.GET("/customers", h.GetAllCustomer)
 	r.GET("/customers/:id", h.GetCustomer)
@@ -162,9 +82,14 @@ func setupRouter() *gin.Engine {
 }
 
 func main() {
-	config.loadEnv()
+	cfg.LoadEnv()
+	fmt.Println("cfg ", cfg)
+	// fmt.Println(" CFG : ", cfg)
 
 	r := setupRouter()
 	// Listen and Server in 0.0.0.0:8080
 	r.Run(":8080")
+
+	fmt.Println("Server started")
+	fmt.Println(" Default status : ", cfg.DefaultStatus)
 }
